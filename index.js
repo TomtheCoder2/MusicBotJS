@@ -25,21 +25,25 @@ client.on("message", async message => {
 
     const serverQueue = queue.get(message.guild.id);
 
-
-    if (message.content.startsWith(`${prefix}play`)) {
-        execute(message, serverQueue);
-        return;
-    } else if (message.content.startsWith(`${prefix}skip`)) {
-        skip(message, serverQueue);
-        return;
-    } else if (message.content.startsWith(`${prefix}stop`)) {
-        stop(message, serverQueue);
-        return;
-    } else if (message.content.startsWith(`${prefix}queue`)) {
-        showQueue(message, serverQueue);
-    } else {
-        message.channel.send("You need to enter a valid command!");
+    try {
+        if (message.content.startsWith(`${prefix}play`)) {
+            execute(message, serverQueue);
+            return;
+        } else if (message.content.startsWith(`${prefix}skip`)) {
+            skip(message, serverQueue);
+            return;
+        } else if (message.content.startsWith(`${prefix}stop`)) {
+            stop(message, serverQueue);
+            return;
+        } else if (message.content.startsWith(`${prefix}queue`)) {
+            showQueue(message, serverQueue);
+        } else {
+            message.channel.send("You need to enter a valid command!");
+        }
+    } catch (e) {
+        message.channel.send("There was an error trying to execute this command!");
     }
+    console.log("didnt do anything, lol")
 });
 
 async function execute(message, serverQueue) {
@@ -81,8 +85,7 @@ async function execute(message, serverQueue) {
         queueContruct.songs.push(song);
 
         try {
-            var connection = await voiceChannel.join();
-            queueContruct.connection = connection;
+            queueContruct.connection = await voiceChannel.join();
             play(message.guild, queueContruct.songs[0]);
         } catch (err) {
             console.log(err);
