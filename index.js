@@ -2,6 +2,8 @@ const Discord = require("discord.js");
 const {prefix, token} = require("./config.json");
 const ytdl = require("ytdl-core");
 const ytsr = require('ytsr');
+let errorLogChannel;
+const packageJSON = require("./package.json");
 
 const client = new Discord.Client();
 
@@ -9,6 +11,9 @@ const queue = new Map();
 
 client.once("ready", () => {
     console.log("Ready!");
+    const discordJSVersion = packageJSON.dependencies["discord.js"];
+    console.log(`Discord.js version: ${discordJSVersion}`);
+    errorLogChannel = client.channels.cache.get("891677596117504020");
 });
 
 client.once("reconnecting", () => {
@@ -38,12 +43,15 @@ client.on("message", async message => {
         } else if (message.content.startsWith(`${prefix}queue`)) {
             showQueue(message, serverQueue);
         } else {
-            message.channel.send("You need to enter a valid command!");
+            await message.channel.send("You need to enter a valid command!");
         }
+        asdf
     } catch (e) {
-        message.channel.send("There was an error trying to execute this command!");
+        await message.channel.send("There was an error trying to execute this command!");
+        console.log(e);
+        errorLogChannel.send(e.stack.toString());
     }
-    console.log("didnt do anything, lol")
+    // console.log("didnt do anything, lol")
 });
 
 async function execute(message, serverQueue) {
@@ -151,4 +159,4 @@ async function play(guild, song) {
     serverQueue.textChannel.send(`Start playing: **${song.title}**`);
 }
 
-client.login(token);
+client.login(token).then(r => console.log(r));

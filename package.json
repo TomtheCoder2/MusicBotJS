@@ -1,5 +1,5 @@
 {
-  "name": "MusicBotJS",
+  "name": "MusicBot",
   "version": "1.0.0",
   "dependencies": {
     "@discordjs/opus": "^0.6.0",
