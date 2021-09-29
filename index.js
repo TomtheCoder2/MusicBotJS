@@ -5,9 +5,17 @@ const ytdl = require("ytdl-core");
 const ytsr = require('ytsr');
 let errorLogChannel;
 const packageJSON = require("./package.json");
-const {joinVoiceChannel} = require('@discordjs/voice');
+const {
+    joinVoiceChannel,
+    getVoiceConnection,
+    VoiceConnectionStatus,
+    entersState,
+    AudioPlayerStatus
+} = require('@discordjs/voice');
+const voice = require("@discordjs/voice");
+// import { createDiscordJSAdapter } from './adapter';
 
-const client = new Discord.Client({intents: ["GUILDS", "GUILD_MESSAGES", "DIRECT_MESSAGES"]});
+const client = new Discord.Client({intents: [Discord.Intents.FLAGS.GUILDS, Discord.Intents.FLAGS.GUILD_MESSAGES, Discord.Intents.FLAGS.GUILD_VOICE_STATES]})
 
 const queue = new Map();
 
@@ -52,30 +60,45 @@ client.on("messageCreate", async message => {
                 }]
             });
         }
-        f
     } catch (e) {
         await message.channel.send({
             embeds: [{
-                title: "There was an error trying to execute this command!",
+                title: `There was an error trying to execute this command!`,
                 color: "#ff0000"
             }]
         });
-        console.log(e);
-        errorLogChannel.send(e.stack.toString());
+        // console.log(e.stack.toString());
+
+        console.debug(message.url.toString())
+        let error = e.stack.toString().toString()
+        console.debug(error)
+        let test = "test"
+        const errorEmbed = {
+            title: `There was an error trying to execute a command!`,
+            description: error,
+            fields: [
+                {
+                    name: "Link to the message:",
+                    value: `${message.url.toString()} !`,
+                }
+            ],
+            color: "#ff0000",
+            timestamp: new Date(),
+        }
+        console.debug(errorEmbed)
+        console.debug(error.length)
+        errorLogChannel.send({
+            embeds: [errorEmbed]
+        });
     }
-    // console.log("didnt do anything, lol")
 });
 
 async function execute(message, serverQueue) {
     const args = message.content.split(" ");
     args.shift();
     console.log(typeof args)
-    // const voiceChannel = message.member.voice.channel;
-    voiceChannel = joinVoiceChannel({
-        channelId: message.member.voice.channel,
-        guildId: message.member.voice.channel.guild.id,
-        adapterCreator: message.member.voice.channel.guild.voiceAdapterCreator,
-    });
+    const voiceChannel = message.member.voice.channel;
+    console.log(voiceChannel)
     if (!voiceChannel)
         return message.channel.send({
                 embeds: [{
@@ -85,16 +108,23 @@ async function execute(message, serverQueue) {
             }
         );
     // voiceChannel.per
-    // const permissions = voiceChannel.permissionsFor(message.client.user);
-    // if (!permissions.has("CONNECT") || !permissions.has("SPEAK")) {
-    //     return message.channel.send({
-    //             embeds: [{
-    //                 title: "I need the permissions to join and speak in your voice channel!",
-    //                 color: "#ff0000"
-    //             }]
-    //         }
-    //     );
-    // }
+    const permissions = voiceChannel.permissionsFor(message.client.user);
+    if (!permissions.has("CONNECT") || !permissions.has("SPEAK")) {
+        return message.channel.send({
+                embeds: [{
+                    title: "I need the permissions to join and speak in your voice channel!",
+                    color: "#ff0000"
+                }]
+            }
+        );
+    }
+    let msg = await message.channel.send({
+        embeds: [{
+            title: "Searching for '" + args.join(" ") + "' on YouTube!",
+            color: "#ff0000"
+        }]
+    })
+    console.log(msg)
     console.log(args.join(" "))
     let result = await ytsr(args.join(" "))
     const songInfo = await ytdl.getInfo(result.items[0].url);
@@ -119,12 +149,33 @@ async function execute(message, serverQueue) {
         queueContruct.songs.push(song);
 
         try {
-            queueContruct.connection = await voiceChannel.join();
-            play(message.guild, queueContruct.songs[0]);
+            // queueContruct.VCconnection = await getVoiceConnection(voiceChannel.guildId);
+            // queueContruct.VCconnection = await getVoiceConnection(`861522903522607124`);
+            queueContruct.VCconnection = voice.joinVoiceChannel({
+                channelId: voiceChannel.id,
+                guildId: voiceChannel.guild.id,
+                adapterCreator: message.channel.guild.voiceAdapterCreator,
+            });
+            console.log(queueContruct.VCconnection)
+            try {
+                await voice.entersState(queueContruct.VCconnection, voice.VoiceConnectionStatus.Ready, 30e3);
+            } catch (error) {
+                queueContruct.VCconnection.destroy();
+                // return console.error(error);
+                throw new Error(error);
+            }
+            // console.log(message.member.voice.channel.id)
+            // console.log(message.member.voice.channel.guildId)
+            // console.log(message.member.voice.channel.guild.voiceAdapterCreator)
+            // console.log(queueContruct.VCconnection)
+            // await entersState(queueContruct.VCconnection, VoiceConnectionStatus.Ready, 30e3);
+            // queueContruct.connection = await voiceChannel.join();
+            await play(message.guild, queueContruct.songs[0], message, msg);
         } catch (err) {
             console.log(err);
             queue.delete(message.guild.id);
-            return message.channel.send(err);
+            // return message.channel.send(err.stack.toString());
+            throw new Error(err);
         }
     } else {
         serverQueue.songs.push(song);
@@ -138,14 +189,26 @@ async function execute(message, serverQueue) {
 }
 
 function showQueue(message, serverQueue) {
-    let list = ""
-    for (let i in serverQueue.songs) {
-        list += `\`${serverQueue.songs[i].title}\`\n`
+    try {
+        console.log(serverQueue.songs)
+        if (serverQueue.songs.length < 1) return message.channel.send({
+            embeds: [{
+                title: `The Queue is empty!`,
+                color: "#00ffff"
+            }]
+        });
+        let list = ""
+        for (let i in serverQueue.songs) {
+            list += `\`${serverQueue.songs[i].title}\`\n`
+        }
+        console.debug(list)
+        const eb = new Discord.MessageEmbed()
+            .setTitle("Current queue:")
+            .setDescription(list);
+        // message.channel.send(eb);
+    } catch (e) {
+        throw new Error(e)
     }
-    const eb = new Discord.MessageEmbed()
-        .setTitle("Current queue:")
-        .setDescription(list);
-    message.channel.send(eb);
 }
 
 function skip(message, serverQueue) {
@@ -165,7 +228,7 @@ function skip(message, serverQueue) {
                 color: "#ff0000"
             }]
         });
-    serverQueue.connection.dispatcher.end();
+    serverQueue.connection.end();
 }
 
 function stop(message, serverQueue) {
@@ -187,31 +250,65 @@ function stop(message, serverQueue) {
         });
 
     serverQueue.songs = [];
-    serverQueue.connection.dispatcher.end();
+    // serverQueue.connection.destroy();
+    serverQueue.connection.disconnect();
 }
 
-async function play(guild, song) {
+async function play(guild, song, message, msg) {
     const serverQueue = queue.get(guild.id);
-    if (!song) {
-        serverQueue.voiceChannel.leave();
-        queue.delete(guild.id);
-        return;
+    // if (!song) {
+    //     serverQueue.voiceChannel.leave();
+    //     queue.delete(guild.id);
+    //     return;
+    // }
+    // console.log(serverQueue.VCconnection)
+    // const dispatcher = serverQueue.VCconnection
+    //     // .play(ytdl(song.url))
+    //     .subscribe(ytdl(song.url))
+    // .on("finish", () => {
+    //     serverQueue.songs.shift();
+    //     play(guild, serverQueue.songs[0]);
+    // })
+    // .on("error", error => console.error(error));
+    const videoinfo = await ytdl.getInfo(song.url);
+    try {
+        var stream = await ytdl.downloadFromInfo(videoinfo);
+    } catch (error) {
+        await message.reply(`Error while creating stream`);
+        // console.error(error);
+        throw new Error(error);
     }
 
-    const dispatcher = serverQueue.connection
-        .play(ytdl(song.url))
-        .on("finish", () => {
-            serverQueue.songs.shift();
-            play(guild, serverQueue.songs[0]);
-        })
-        .on("error", error => console.error(error));
-    dispatcher.setVolumeLogarithmic(serverQueue.volume / 5);
-    serverQueue.textChannel.send({
-        embeds: [{
-            title: `Start playing: **${song.title}**`,
-            color: "#00ff00"
-        }]
+    const player = voice.createAudioPlayer()
+
+
+    const resource = voice.createAudioResource(stream, {
+        inputType: voice.StreamType.Arbitrary,
+        inlineVolume: true
     });
+    player.play(resource);
+    await voice.entersState(player, voice.AudioPlayerStatus.Playing, 5e3);
+
+
+    serverQueue.VCconnection.subscribe(player);
+
+    player.on('subscribe', async () => {
+        await message.reply({
+            embeds: [{
+                title: `:thumbsup: Now Playing ***${song.title}***`,
+                color: "#00ff00"
+            }]
+        });
+        setTimeout(() => msg.delete(), 1);
+    });
+    // dispatcher.setVolumeLogarithmic(serverQueue.volume / 5);
+    // serverQueue.textChannel.send({
+    //     embeds: [{
+    //         title: `Start playing: **${song.title}**`,
+    //         color: "#00ff00"
+    //     }]
+    // });
 }
+
 
 client.login(token).then(r => console.log(r));

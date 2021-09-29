@@ -7,10 +7,12 @@
     "discord.js": "^13.1.0",
     "ffmpeg": "0.0.4",
     "fluent-ffmpeg": "^2.1.2",
+    "libsodium-wrappers": "^0.7.9",
     "node": "16.6.1",
     "ytsr": "^3.5.3"
   },
   "devDependencies": {
+    "yt-search": "^2.10.1",
     "ytdl-core": "^4.9.1"
   }
 }
