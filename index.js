@@ -197,15 +197,18 @@ function showQueue(message, serverQueue) {
                 color: "#00ffff"
             }]
         });
+
         let list = ""
         for (let i in serverQueue.songs) {
+            console.debug(serverQueue.songs[i])
             list += `\`${serverQueue.songs[i].title}\`\n`
         }
         console.debug(list)
         const eb = new Discord.MessageEmbed()
             .setTitle("Current queue:")
-            .setDescription(list);
-        // message.channel.send(eb);
+            // .setDescription(list);
+        console.debug(eb)
+        message.channel.send(eb);
     } catch (e) {
         throw new Error(e)
     }
